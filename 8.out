@@ -1,0 +1,7 @@
+THERE ARE 6 STATES AND 6 ARCS
+State 0: [p1:1]
+State 1: [p2:1, p3:1]
+State 2: [p3:1, p4:1]
+State 3: [p2:1, p5:1]
+State 4: [p4:1, p5:1]
+State 5: [p6:1]

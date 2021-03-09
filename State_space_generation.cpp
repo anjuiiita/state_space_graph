@@ -15,6 +15,8 @@ class Graph
 	public:
         Graph(int num_of_nodes);    //Constructor
         bool petri;
+        int arcs_count;
+        int sink_node_count;
         list<int> *adj;
         list<int> all_states;
         vector<string> state_space;
@@ -35,13 +37,18 @@ class Graph
         void generate_petri_net(string petri_net_file);
 };
 
+// Initialize graph
 Graph::Graph(int nodes) {
     num_of_nodes = nodes;
     count = 0;
+    sink_node_count = 0;
+    arcs_count = 0;
     petri = false;
 	adj = new list<int>[num_of_nodes];
 }
 
+
+// Add edges into graph and create input and out arcs for petri net
 void Graph::addEdge(int v, int w)
 {
     map<int,int>::iterator it;
@@ -70,9 +77,9 @@ void Graph::addEdge(int v, int w)
     task_child[v] = true;
 
     if (petri) {
-        first_place = 'p' + to_string(first_node+1);
-        second_place = 'p' + to_string(second_node+1);
-        string trans = 't' + to_string(first_node+1);
+        first_place = 'p' + to_string(first_node + 1);
+        second_place = 'p' + to_string(second_node + 1);
+        string trans = 't' + to_string(first_node + 1);
 
         map<string, list<string> >::iterator oi;
         for ( oi = output_trans.begin(); oi != output_trans.end(); oi++) {
@@ -90,6 +97,8 @@ void Graph::addEdge(int v, int w)
     }
 }
 
+
+// detect cycle in the graph
 bool Graph::detectCycleRec(int task, bool visited[], bool *task_stack) 
 { 
     if(visited[task] == false) 
@@ -165,7 +174,8 @@ list<int> Graph::getReachableStates(int v)
     }
     return reachable_states;  
 }
-  
+
+// generating combination of states and checking if they can coexist
 void Graph::getTaskPrec(int arr[], int n, int r,  
                     int index, int data[], int i, int taskid)  
 {  
@@ -189,8 +199,11 @@ void Graph::getTaskPrec(int arr[], int n, int r,
         if(!flag) {
             //states_space_by_node[node].push_back(data);
             string state_str = "{" + to_string(taskid) + ", ";
-            for (int j = 0; j < r; j++) 
+            arcs_count++;
+            for (int j = 0; j < r; j++) {
+                arcs_count++;
                 state_str += to_string(data[j]) + ", "; 
+            }
             state_str.pop_back(); 
             state_str.pop_back();
             state_str += "}";
@@ -208,6 +221,8 @@ void Graph::getTaskPrec(int arr[], int n, int r,
     getTaskPrec(arr, n, r, index, data, i+1, taskid);  
 }  
 
+
+// generating state space for every task
 void Graph::getStateSpace(int v, bool* visited_tasks) {
     vector<int> unreachable_states;
     list<int>:: iterator it;
@@ -218,12 +233,13 @@ void Graph::getStateSpace(int v, bool* visited_tasks) {
             itr = find(reachable_nodes[taskid].begin(), reachable_nodes[taskid].end(), *it);
             int cur_task_idx = vertices[*it];
             if(itr == reachable_nodes[taskid].end()) {
-                //if (cur_task_idx > v) {
                 if (!visited_tasks[cur_task_idx]) {
                     unreachable_states.push_back(*it);
                 }
             }
         }
+    } else {
+        sink_node_count++;
     }
 
     int n = unreachable_states.size();
@@ -231,12 +247,14 @@ void Graph::getStateSpace(int v, bool* visited_tasks) {
     if (n == 0) {
         string state_str = "{" + to_string(taskid) + "}";
         state_space.push_back(state_str);
+        arcs_count++;
     }
     if (n == 1) {
         int reachable_task = unreachable_states[0];
         string temp_str = "{" + to_string(reachable_task) + ", " + to_string(taskid) + "}";
         if (find(state_space.begin(), state_space.end(), temp_str) == end(state_space)) {
             string state_str = "{" + to_string(taskid) + ", " + to_string(reachable_task) + "}";
+            arcs_count += 2;
             state_space.push_back(state_str);
         }
     }
@@ -248,19 +266,26 @@ void Graph::getStateSpace(int v, bool* visited_tasks) {
 
 }
 
+
+//creating petri net file using input output arcs
 void Graph::generate_petri_net(string petri_net_file) {
     string places = "\tplace ";
     string trans = "\ttrans ";
     string arcs = "\tarcs( \n";
+    int arcs_count = 0;
     ofstream pn;
     pn.open(petri_net_file);
+    if (pn.fail()) {
+        cout << "Error opening " + petri_net_file <<endl;
+        exit(1);
+    }
     pn << "pn tpg := {" << endl;
 
-    //map<string, string> states_trans(input_trans);
 
     map<string, string>::iterator t_i;
     for (t_i = input_trans.begin(); t_i != input_trans.end(); t_i++) {
         arcs += "\t\t" + t_i->first + " : " + t_i->second + ",\n";
+        arcs_count++;
     }
 
     for (int i = 1; i <= num_of_nodes; i++) {
@@ -270,22 +295,13 @@ void Graph::generate_petri_net(string petri_net_file) {
         trans += temp + ", ";
     }
 
-    // for (int i = 1; i <= num_of_nodes; i++) {
-    //     string temp = 't' + to_string(i);
-    //     string p_t = 'p' + to_string(i);
-    //     if (output_trans.find(temp) == output_trans.end()) {
-    //         arcs += "\t\t" + temp + " : " + parents[p_t] + ",\n";
-    //         arcs += "\t\t" + p_t + " : " + temp + ",\n";
-    //         break;
-    //     }
-    // }
-
     
     map<string, list<string> >::iterator it;
     for (it = output_trans.begin(); it != output_trans.end(); it++) {
         list<string>::iterator itr;
         for (itr = it->second.begin(); itr != it->second.end(); itr++) {
             arcs += "\t\t" + it->first + " : " + *itr + ",\n";
+            arcs_count++;
         }
     }
 
@@ -317,6 +333,7 @@ void Graph::generate_petri_net(string petri_net_file) {
     pn.close();
 }
 
+//main function 
 int main(int argc, char* argv[])
 {
     string input_file;
@@ -341,6 +358,7 @@ int main(int argc, char* argv[])
         }
     }
 
+
     if (argc == 6) {
         input_file = argv[1];
         if (strcmp(argv[2], "-s") == 0) {
@@ -364,7 +382,6 @@ int main(int argc, char* argv[])
         tasks[edge_node1] = true;
         tasks[edge_node2] = true;
     }
-
     nodes = tasks.size();
 
     Graph g(nodes);
@@ -397,6 +414,10 @@ int main(int argc, char* argv[])
     if (!output_file.empty()) {
         ofstream file;
         file.open(output_file);
+        if (file.fail()) {
+            cout << "Error opening " + output_file <<endl;
+            return 0;
+        }
 
         vector<string> states;
         bool *visited_tasks = new bool[nodes];
@@ -411,9 +432,23 @@ int main(int argc, char* argv[])
             visited_tasks[i] = true;
             g.getStateSpace(i, visited_tasks);
         }
-        
+
+        if (g.sink_node_count > 1) {
+            map<int, bool>::iterator tc;
+            string new_state = "{";
+            for (tc = g.task_child.begin(); tc != g.task_child.end(); tc++) {
+                if (!tc->second) {
+                    new_state += to_string(tc->first) + ", ";
+                    g.arcs_count++;
+                }
+            }
+            new_state.pop_back();
+            new_state.pop_back();
+            new_state += "}";
+            g.state_space.push_back(new_state);
+        }
         g.state_space.push_back("{}");
-        file << "THERE ARE " << g.state_space.size() << " REACHABLE STATES" << endl;
+        file << "THERE ARE " << g.state_space.size() << " REACHABLE STATES AND " << g.arcs_count << " ARCS" << endl;
         for (int i = 0; i < g.state_space.size(); i++) {
             file <<g.state_space[i]<<endl;
         }
