@@ -1,0 +1,23 @@
+pn tpg := {
+	place p1, p2, p3, p4, p5, p6, p7, p8;
+
+	init(p1:1);
+
+	trans t1, t2, t3, t4, t5, t6, t7, t8;
+
+	arcs( 
+		p1 : t1,
+		p3 : t1,
+		p4 : t1,
+		p5 : t1,
+		p6 : t1,
+		p7 : t1,
+		p8 : t1,
+		t1 : p2
+	);
+	bigint ns := num_states;
+	bigint na := num_arcs;
+	void show_rs := show_states(false);
+};
+print("THERE ARE ",tpg.ns," STATES AND ",tpg.na," ARCS\n");
+tpg.show_rs;
